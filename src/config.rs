@@ -82,6 +82,7 @@ pub struct Script {
     // should be not "",  should not contain ' ', should not start with "-"
     pub name: String,
     pub cmd: Cmd,
+    pub cwd: Option<String>,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -164,6 +165,7 @@ mod test {
             scripts: vec![Script {
                 name: String::from("run"),
                 cmd: Cmd::Cmd(String::from("echo run")),
+                cwd: None,
             }],
         })
     }
@@ -183,11 +185,13 @@ mod test {
             scripts: vec![
                 Script{
                     name: String::from("run"),
-                    cmd: Cmd::Cmd(String::from("echo run"))
+                    cmd: Cmd::Cmd(String::from("echo run")),
+                    cwd: None,
                 },
                 Script {
                     name: String::from("backrun"),
                     cmd: Cmd::Cmd(String::from("echo backrun")),
+                    cwd: None,
                 }
             ]
         })
@@ -240,13 +244,43 @@ mod test {
             scripts: vec![
                 Script {
                     name: String::from("s"),
-                    cmd: Cmd::Consecutive(vec![Cmd::Cmd(String::from("echo a")),Cmd::Cmd(String::from("echo b"))])
+                    cmd: Cmd::Consecutive(vec![Cmd::Cmd(String::from("echo a")),Cmd::Cmd(String::from("echo b"))]),
+                    cwd: None,
                 },
                 Script {
                     name: String::from("alpha"),
                     cmd: Cmd::Cmd(String::from("echo beta")),
+                    cwd: None,
                 },
             ],
+        })
+    }
+
+    setup_test! {
+        set_cwd,
+        "
+        [[scripts]]
+        name = \"alpha\"
+        cmd = \"echo beta\"
+
+        [[scripts]]
+        name = \"hey\"
+        cwd = \"./target\"
+        cmd = [\"echo hey\", \"touch d.txt\"]
+        ",
+        Ok(Config {
+            scripts: vec![
+                Script {
+                    name: String::from("alpha"),
+                    cmd: Cmd::Cmd(String::from("echo beta")),
+                    cwd: None,
+                },
+                Script {
+                    name: String::from("hey"),
+                    cmd: Cmd::Consecutive(vec![Cmd::Cmd(String::from("echo hey")), Cmd::Cmd(String::from("touch d.txt"))]),
+                    cwd: Some(String::from("./target")),
+                },
+            ]
         })
     }
 }

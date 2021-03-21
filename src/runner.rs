@@ -6,43 +6,15 @@ use std::{
 
 use crate::config::{Cmd, Script};
 
-struct DeleteFileHandle(String);
-
-impl Drop for DeleteFileHandle {
-    fn drop(&mut self) {
-        fs::remove_file(&self.0).unwrap();
-    }
-}
-
-// creates temporary .sh file to run your script
-fn execute(cmd: &str) -> (Command, DeleteFileHandle) {
-    let fname = format!(
-        "~{}.sh",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos(),
-    );
-
-    fs::write(&fname, cmd).unwrap();
-
-    let mut command = Command::new("sh");
-    command.arg(&fname);
-
-    (command, DeleteFileHandle(fname))
-}
-
-fn run_cmd(cmd: &Cmd) {
+fn write_commands(buf: &mut String, cmd: &Cmd) {
     match cmd {
-        Cmd::Cmd(cmd) => {
-            eprintln!("$ {}", cmd);
-
-            let (mut command, _handle) = execute(cmd);
-            command.spawn().unwrap().wait().unwrap();
+        Cmd::Cmd(s) => {
+            *buf += &format!("echo \u{001b}[32m$\u{001b}[0m {}\n", s);
+            *buf += &format!("{}\n", s);
         }
         Cmd::Consecutive(cmds) => {
             for cmd in cmds {
-                run_cmd(cmd);
+                write_commands(buf, cmd);
             }
         }
     }
@@ -50,5 +22,39 @@ fn run_cmd(cmd: &Cmd) {
 
 pub fn run_script(script: &Script) {
     eprintln!("\u{001b}[32mRunning script\u{001b}[0m {}", script.name);
-    run_cmd(&script.cmd);
+
+    // converting script to sh format
+    let sh = {
+        let mut s = String::new();
+        if let Some(cwd) = &script.cwd {
+            s += &format!("cd {}\n", cwd);
+        }
+
+        write_commands(&mut s, &script.cmd);
+
+        s
+    };
+
+    // create a temporary .sh file and write the script to
+    let (fname, mut command) = {
+        let fname = format!(
+            "~{}.sh",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        );
+
+        fs::write(&fname, sh).unwrap();
+
+        let mut command = Command::new("sh");
+        command.arg(&fname);
+        (fname, command)
+    };
+
+    // run the script
+    command.spawn().unwrap().wait().unwrap();
+
+    // remove the temp file
+    fs::remove_file(fname).unwrap();
 }
