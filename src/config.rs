@@ -1,11 +1,12 @@
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
+use serde::de::{Deserializer, SeqAccess, Visitor};
 use serde::Deserialize;
-
-const INVALID_NAME_CHARACTERS: [char; 2] = [' ', '\t'];
 
 mod script_errors {
     use super::*;
+
+    const INVALID_NAME_CHARACTERS: [char; 2] = [' ', '\t'];
 
     pub struct Test {
         pub test: fn(&Script) -> bool,
@@ -22,18 +23,65 @@ mod script_errors {
             message: "script name cannot contain tabs or spaces",
         },
         Test {
-            test: |s| s.cmd == "",
-            message: "script cmd cannot be empty",
+            test: |s| s.name.starts_with('-'),
+            message: "script name cannot start with -",
         },
     ];
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Cmd {
+    Cmd(String),
+    Consecutive(Vec<Cmd>),
+}
+
+struct CmdVisitor;
+
+impl<'de> Visitor<'de> for CmdVisitor {
+    type Value = Cmd;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string or an array of strings")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Cmd::Cmd(String::from(v)))
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut v = vec![];
+        loop {
+            match seq.next_element::<Cmd>() {
+                Ok(Some(cmd)) => v.push(cmd),
+                Ok(None) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(Cmd::Consecutive(v))
+    }
+}
+
+impl<'de> Deserialize<'de> for Cmd {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(CmdVisitor)
+    }
+}
+
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Script {
-    // should be not "" and should not contain ' '
+    // should be not "",  should not contain ' ', should not start with "-"
     pub name: String,
-    // shoudl be not ""
-    pub cmd: String,
+    pub cmd: Cmd,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -115,7 +163,7 @@ mod test {
         Ok(Config {
             scripts: vec![Script {
                 name: String::from("run"),
-                cmd: String::from("echo run"),
+                cmd: Cmd::Cmd(String::from("echo run")),
             }],
         })
     }
@@ -135,11 +183,11 @@ mod test {
             scripts: vec![
                 Script{
                     name: String::from("run"),
-                    cmd: String::from("echo run")
+                    cmd: Cmd::Cmd(String::from("echo run"))
                 },
                 Script {
                     name: String::from("backrun"),
-                    cmd: String::from("echo backrun"),
+                    cmd: Cmd::Cmd(String::from("echo backrun")),
                 }
             ]
         })
@@ -163,7 +211,7 @@ mod test {
         cmd = \"echo run\"
 
         [[scripts]]
-        name = \"backrun\"
+        name = \"-backrun\"
         cmd = \"\"
 
         [[scripts]]
@@ -172,8 +220,33 @@ mod test {
         ",
         Err(Error::ConfigErrors(vec![
             "error in script 0:ru n : script name cannot contain tabs or spaces",
-            "error in script 1:backrun : script cmd cannot be empty",
+            "error in script 1:-backrun : script name cannot start with -",
             "error in script 2: : script name cannot be empty"
         ].into_iter().map(String::from).collect::<Vec<_>>()))
+    }
+
+    setup_test! {
+        sequenced_commands,
+        "
+        [[scripts]]
+        name = \"s\"
+        cmd = [\"echo a\", \"echo b\"]
+        
+        [[scripts]]
+        name = \"alpha\"
+        cmd = \"echo beta\"
+        ",
+        Ok(Config {
+            scripts: vec![
+                Script {
+                    name: String::from("s"),
+                    cmd: Cmd::Consecutive(vec![Cmd::Cmd(String::from("echo a")),Cmd::Cmd(String::from("echo b"))])
+                },
+                Script {
+                    name: String::from("alpha"),
+                    cmd: Cmd::Cmd(String::from("echo beta")),
+                },
+            ],
+        })
     }
 }

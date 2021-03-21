@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::config::Script;
+use crate::config::{Cmd, Script};
 
 struct DeleteFileHandle(String);
 
@@ -32,10 +32,23 @@ fn execute(cmd: &str) -> (Command, DeleteFileHandle) {
     (command, DeleteFileHandle(fname))
 }
 
+fn run_cmd(cmd: &Cmd) {
+    match cmd {
+        Cmd::Cmd(cmd) => {
+            eprintln!("$ {}", cmd);
+
+            let (mut command, _handle) = execute(cmd);
+            command.spawn().unwrap().wait().unwrap();
+        }
+        Cmd::Consecutive(cmds) => {
+            for cmd in cmds {
+                run_cmd(cmd);
+            }
+        }
+    }
+}
+
 pub fn run_script(script: &Script) {
     eprintln!("\u{001b}[32mRunning script\u{001b}[0m {}", script.name);
-    eprintln!("$ {}", script.cmd);
-
-    let (mut command, _handle) = execute(&script.cmd);
-    command.spawn().unwrap().wait().unwrap();
+    run_cmd(&script.cmd);
 }

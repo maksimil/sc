@@ -1,3 +1,7 @@
 [[scripts]]
 name = "rust"
 cmd = "echo I love rust"
+
+[[scripts]]
+name = "seq-r"
+cmd = ["echo rust is best", "echo sc is written in rust"]
