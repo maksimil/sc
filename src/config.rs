@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -11,6 +13,22 @@ pub struct Config {
     pub scripts: Vec<Script>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    TomlError(String),
+}
+
+impl FromStr for Config {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match toml::from_str(s) {
+            Ok(config) => Ok(config),
+            Err(err) => Err(Error::TomlError(err.to_string())),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -21,7 +39,7 @@ mod test {
             fn $test_name() {
                 let s = $pstr;
 
-                let sconfig = toml::from_str(s);
+                let sconfig = s.parse::<Config>();
 
                 let config = $result;
 
@@ -68,5 +86,15 @@ mod test {
                 }
             ]
         })
+    }
+
+    setup_test! {
+        simple_toml_error,
+        "
+        [[scripts]]
+        name = \"run\"
+        cmd = 
+        ",
+        Err(Error::TomlError(String::from("expected a value, found a newline at line 4 column 15")))
     }
 }
