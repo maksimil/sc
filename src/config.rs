@@ -2,9 +2,37 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 
+const INVALID_NAME_CHARACTERS: [char; 2] = [' ', '\t'];
+
+mod script_errors {
+    use super::*;
+
+    pub struct Test {
+        pub test: fn(&Script) -> bool,
+        pub message: &'static str,
+    }
+
+    pub const SCRIPT_ERRORS: [Test; 3] = [
+        Test {
+            test: |s| s.name == "",
+            message: "script name cannot be empty",
+        },
+        Test {
+            test: |s| s.name.contains(&INVALID_NAME_CHARACTERS[..]),
+            message: "script name cannot contain tabs or spaces",
+        },
+        Test {
+            test: |s| s.cmd == "",
+            message: "script cmd cannot be empty",
+        },
+    ];
+}
+
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Script {
+    // should be not "" and should not contain ' '
     pub name: String,
+    // shoudl be not ""
     pub cmd: String,
 }
 
@@ -16,14 +44,39 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     TomlError(String),
+    ConfigErrors(Vec<String>),
+}
+
+impl Config {
+    fn verify(self) -> Result<Self, Error> {
+        let mut errors = vec![];
+
+        // verify scripts
+        for (i, script) in self.scripts.iter().enumerate() {
+            for test in script_errors::SCRIPT_ERRORS.iter() {
+                if (test.test)(script) {
+                    errors.push(format!(
+                        "error in script {}:{} : {}",
+                        i, script.name, test.message
+                    ))
+                }
+            }
+        }
+
+        if errors.len() == 0 {
+            Ok(self)
+        } else {
+            Err(Error::ConfigErrors(errors))
+        }
+    }
 }
 
 impl FromStr for Config {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match toml::from_str(s) {
-            Ok(config) => Ok(config),
+        match toml::from_str::<Config>(s) {
+            Ok(config) => config.verify(),
             Err(err) => Err(Error::TomlError(err.to_string())),
         }
     }
@@ -96,5 +149,27 @@ mod test {
         cmd = 
         ",
         Err(Error::TomlError(String::from("expected a value, found a newline at line 4 column 15")))
+    }
+
+    setup_test! {
+        config_errors,
+        "
+        [[scripts]]
+        name = \"ru n\"
+        cmd = \"echo run\"
+
+        [[scripts]]
+        name = \"backrun\"
+        cmd = \"\"
+
+        [[scripts]]
+        name = \"\"
+        cmd = \"bb\"
+        ",
+        Err(Error::ConfigErrors(vec![
+            "error in script 0:ru n : script name cannot contain tabs or spaces",
+            "error in script 1:backrun : script cmd cannot be empty",
+            "error in script 2: : script name cannot be empty"
+        ].into_iter().map(String::from).collect::<Vec<_>>()))
     }
 }
