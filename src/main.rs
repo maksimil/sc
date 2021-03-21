@@ -6,8 +6,10 @@ use std::{
 
 use clap::clap_app;
 use config::{Config, Error as ConfigError};
+use runner::run_script;
 
 mod config;
+mod runner;
 
 const DEFAULT_SCRIPT_CONTENTS: &str = include_str!("sc_default.toml");
 
@@ -21,7 +23,7 @@ fn main() {
     )
     .get_matches();
 
-    if let Some(command) = matches.value_of("COMMAND") {
+    if let Some(name) = matches.value_of("COMMAND") {
         // parse sc.toml
         let config = {
             let contents = fs::read_to_string("sc.toml");
@@ -71,5 +73,21 @@ fn main() {
                 },
             }
         };
+
+        // main functionality
+        // find script
+        let script = {
+            match config.find_script(name) {
+                Some(script) => script,
+                None => {
+                    eprintln!("Script {} was not found", name);
+                    exit(-1);
+                }
+            }
+        };
+
+        // run it
+        run_script(script);
+        exit(0);
     }
 }

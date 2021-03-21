@@ -69,6 +69,10 @@ impl Config {
             Err(Error::ConfigErrors(errors))
         }
     }
+
+    pub fn find_script(&self, name: &str) -> Option<&Script> {
+        self.scripts.iter().find(|s| s.name == name)
+    }
 }
 
 impl FromStr for Config {
