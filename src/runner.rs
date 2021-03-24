@@ -8,7 +8,7 @@ use crate::config::{Cmd, Script};
 
 fn write_commands(buf: &mut String, cmd: &Cmd) {
     match cmd {
-        Cmd::Cmd(s) => {
+        Cmd::String(s) => {
             *buf += &format!("echo \u{001b}[32m$\u{001b}[0m {}\n", s);
             *buf += &format!("{}\n", s);
         }
@@ -21,8 +21,6 @@ fn write_commands(buf: &mut String, cmd: &Cmd) {
 }
 
 pub fn run_script(script: &Script) {
-    eprintln!("\u{001b}[32mRunning script\u{001b}[0m {}", script.name);
-
     // converting script to sh format
     let sh = {
         let mut s = String::new();

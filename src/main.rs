@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::clap_app;
-use config::{Config, Error as ConfigError};
+use config::Config;
 use runner::run_script;
 
 mod config;
@@ -38,7 +38,10 @@ fn main() {
                         let buf = buf.trim();
                         if buf == "Y" || buf == "y" {
                             if let Err(e) = fs::write("sc.toml", DEFAULT_SCRIPT_CONTENTS) {
-                                eprintln!("While creating sc.toml an error occured: {}", e);
+                                eprintln!(
+                                    "\u{001b}[31merror\u{001b}[0m while creating sc.toml: {}",
+                                    e
+                                );
                                 exit(-1);
                             } else {
                                 String::from(DEFAULT_SCRIPT_CONTENTS)
@@ -47,7 +50,10 @@ fn main() {
                             exit(-1);
                         }
                     } else {
-                        eprintln!("Failed to parse config file with error: {}", e);
+                        eprintln!(
+                            "\u{001b}[31merror\u{001b}[0m while parsing config file: {}",
+                            e
+                        );
                         exit(-1);
                     }
                 }
@@ -56,37 +62,30 @@ fn main() {
 
             match config {
                 Ok(config) => config,
-                Err(e) => match e {
-                    ConfigError::TomlError(e) => {
-                        eprintln!("While parsing sc.toml an error occured: {}", e);
-                        exit(-1);
-                    }
-                    ConfigError::ConfigErrors(e) => {
-                        eprintln!("While parsing sc.toml errors occured:");
-
-                        for msg in e {
-                            eprintln!("{}", msg);
-                        }
-
-                        exit(-1);
-                    }
-                },
+                Err(e) => {
+                    eprintln!("\u{001b}[31merror\u{001b}[0m: {}", e);
+                    exit(-1);
+                }
             }
         };
 
         // main functionality
         // find script
         let script = {
-            match config.find_script(name) {
+            match config.scripts.get(name) {
                 Some(script) => script,
                 None => {
-                    eprintln!("Script {} was not found", name);
+                    eprintln!(
+                        "\u{001b}[31merror\u{001b}[0m: script {} was not found",
+                        name
+                    );
                     exit(-1);
                 }
             }
         };
 
         // run it
+        eprintln!("\u{001b}[32mRunning script\u{001b}[0m {}", name);
         run_script(script);
         exit(0);
     }
