@@ -28,6 +28,10 @@ pub fn run_script(script: &Script) {
             s += &format!("cd {}\n", cwd);
         }
 
+        for env_string in script.env.0.iter() {
+            s += &format!("export {}\n", env_string);
+        }
+
         write_commands(&mut s, &script.cmd);
 
         s

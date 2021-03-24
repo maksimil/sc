@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::raw_config::{RawCmd, RawConfig, RawScript};
+use super::raw_config::{RawCmd, RawConfig, RawEnv, RawScript};
 
 macro_rules! verify {
     ($name:ident) => {
@@ -27,6 +27,7 @@ pub struct Config {
 pub struct Script {
     pub cmd: Cmd,
     pub cwd: Option<String>,
+    pub env: Env,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,9 @@ pub enum Cmd {
     String(String),
     Consecutive(Vec<Cmd>),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Env(pub Vec<String>);
 
 impl Config {
     pub fn from_raw(raw: RawConfig) -> Result<Config, String> {
@@ -89,7 +93,10 @@ impl Script {
 
         let cwd = raw.cwd;
 
-        Ok((name, Script { cmd, cwd }))
+        let env = Env::from_raw(raw.env);
+        verify!(env, name);
+
+        Ok((name, Script { cmd, cwd, env }))
     }
 }
 
@@ -107,6 +114,29 @@ impl Cmd {
                     Err(e) => Err(e),
                 })
                 .map(|c| Cmd::Consecutive(c)),
+        }
+    }
+}
+
+impl Env {
+    fn from_raw(raw: Option<RawEnv>) -> Result<Env, String> {
+        match raw {
+            Some(rawenv) => rawenv
+                .0
+                .into_iter()
+                .try_fold(vec![], |mut acc, (name, value)| {
+                    if name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+                    {
+                        acc.push(format!("{}={}", name, value));
+                        Ok(acc)
+                    } else {
+                        Err(format!("invalid env variable name \"{}\"", name))
+                    }
+                })
+                .map(|v| Env(v)),
+            None => Ok(Env(Vec::with_capacity(0))),
         }
     }
 }

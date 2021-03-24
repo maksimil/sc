@@ -1,9 +1,22 @@
 use std::{fmt, str::FromStr};
 
 use serde::{
-    de::{SeqAccess, Visitor},
+    de::{MapAccess, SeqAccess, Visitor},
     Deserialize, Deserializer,
 };
+
+macro_rules! deserialize_with {
+    ($data:ident, $visitor:expr) => {
+        impl<'de> Deserialize<'de> for $data {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_any($visitor)
+            }
+        }
+    };
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct RawConfig {
@@ -23,6 +36,7 @@ pub struct RawScript {
     pub name: String,
     pub cmd: RawCmd,
     pub cwd: Option<String>,
+    pub env: Option<RawEnv>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +44,13 @@ pub enum RawCmd {
     String(String),
     List(Vec<RawCmd>),
 }
+
+deserialize_with!(RawCmd, CmdVisitor);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawEnv(pub Vec<(String, String)>);
+
+deserialize_with!(RawEnv, EnvVisitor);
 
 struct CmdVisitor;
 
@@ -64,11 +85,28 @@ impl<'de> Visitor<'de> for CmdVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for RawCmd {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+struct EnvVisitor;
+
+impl<'de> Visitor<'de> for EnvVisitor {
+    type Value = RawEnv;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "map")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
-        D: Deserializer<'de>,
+        A: MapAccess<'de>,
     {
-        deserializer.deserialize_any(CmdVisitor)
+        let mut v = vec![];
+        loop {
+            match map.next_entry::<String, String>() {
+                Ok(Some(pair)) => {
+                    v.push(pair);
+                }
+                Ok(None) => break Ok(RawEnv(v)),
+                Err(e) => break Err(e),
+            }
+        }
     }
 }

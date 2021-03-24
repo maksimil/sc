@@ -1,3 +1,5 @@
+use config::Env;
+
 use super::*;
 
 macro_rules! setup_test {
@@ -29,6 +31,7 @@ setup_test! {
                 Script {
                     cmd: Cmd::String(String::from("echo run")),
                     cwd: None,
+                    env: Env(vec![])
                 }
             )
         ].into_iter().collect(),
@@ -53,6 +56,7 @@ setup_test! {
                 Script{
                     cmd: Cmd::String(String::from("echo run")),
                     cwd: None,
+                    env: Env(vec![])
                 }
             ),
             (
@@ -60,6 +64,7 @@ setup_test! {
                 Script {
                     cmd: Cmd::String(String::from("echo backrun")),
                     cwd: None,
+                    env: Env(vec![])
                 }
             )
         ].into_iter().collect()
@@ -128,6 +133,7 @@ setup_test! {
                 Script {
                     cmd: Cmd::Consecutive(vec![Cmd::String(String::from("echo a")),Cmd::String(String::from("echo b"))]),
                     cwd: None,
+                    env: Env(vec![])
                 }
             ),
             (
@@ -135,6 +141,7 @@ setup_test! {
                 Script {
                     cmd: Cmd::String(String::from("echo beta")),
                     cwd: None,
+                    env: Env(vec![])
                 }
             )
         ].into_iter().collect(),
@@ -156,6 +163,7 @@ setup_test! {
                 Script {
                     cmd: Cmd::Consecutive(vec![Cmd::String(String::from("echo hey")), Cmd::String(String::from("touch d.txt"))]),
                     cwd: Some(String::from("./target")),
+                    env: Env(vec![])
                 }
             )
         ].into_iter().collect()
@@ -174,4 +182,37 @@ setup_test! {
     cmd = \"echo ba\"
     ",
     Err(String::from("2 scripts have the same name \"ab\""))
+}
+
+setup_test! {
+    set_env,
+    "
+    [[scripts]]
+    name = \"env_a\"
+    cmd = \"echo $NAME\"
+    env = {NAME=\"hey\", \"SUR_NAME\"=\"bye\"}
+    ",
+    Ok(Config {
+        scripts: vec![
+            (
+                String::from("env_a"),
+                Script {
+                    cmd: Cmd::String(String::from("echo $NAME")),
+                    cwd: None,
+                    env: Env(vec![String::from("NAME=hey"), String::from("SUR_NAME=bye")]),
+                }
+            )
+        ].into_iter().collect()
+    })
+}
+
+setup_test! {
+    invalid_env_name,
+    "
+    [[scripts]]
+    name = \"env_a\"
+    cmd = \"echo $NAME\"
+    env = {\"hey you\"=\"hey\"}
+    ",
+    Err(String::from("script 0:env_a : invalid env variable name \"hey you\""))
 }
