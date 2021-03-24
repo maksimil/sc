@@ -83,7 +83,7 @@ setup_test! {
     name = \"ru n\"
     cmd = \"echo run\"
     ",
-    Err(String::from("error in script 0:ru n : script name cannot contain tabs or spaces"))
+    Err(String::from("script 0:ru n : script name cannot contain tabs or spaces"))
 }
 
 setup_test! {
@@ -97,7 +97,7 @@ setup_test! {
     name = \"\"
     cmd = \"echo run\"
     ",
-    Err(String::from("error in script 1: : script name cannot be empty"))
+    Err(String::from("script 1: script name cannot be empty"))
 }
 
 setup_test! {
@@ -107,7 +107,7 @@ setup_test! {
     name = \"-b\"
     cmd = \"echo run\"
     ",
-    Err(String::from("error in script 0:-b : script name cannot start with -"))
+    Err(String::from("script 0:-b : script name cannot start with -"))
 }
 
 setup_test! {
@@ -160,4 +160,18 @@ setup_test! {
             )
         ].into_iter().collect()
     })
+}
+
+setup_test! {
+    name_conflict,
+    "
+    [[scripts]]
+    name = \"ab\"
+    cmd = \"echo ab\"
+
+    [[scripts]]
+    name = \"ab\"
+    cmd = \"echo ba\"
+    ",
+    Err(String::from("2 scripts have the same name \"ab\""))
 }

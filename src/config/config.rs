@@ -41,10 +41,20 @@ impl Config {
             HashMap::new(),
             |mut acc, (idx, rawscript)| match Script::from_raw(rawscript) {
                 Ok((k, v)) => {
-                    acc.insert(k, v);
-                    Ok(acc)
+                    let ck = k.clone();
+                    if acc.insert(k, v).is_some() {
+                        Err(format!("2 scripts have the same name \"{}\"", ck))
+                    } else {
+                        Ok(acc)
+                    }
                 }
-                Err((e, name)) => Err(format!("error in script {}:{} : {}", idx, name, e)),
+                Err((e, name)) => {
+                    if name != "" {
+                        Err(format!("script {}:{} : {}", idx, name, e))
+                    } else {
+                        Err(format!("script {}: {}", idx, e))
+                    }
+                }
             },
         );
 
