@@ -21,6 +21,7 @@ macro_rules! deserialize_with {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct RawConfig {
     pub scripts: Vec<RawScript>,
+    pub config: Option<RawEnv>,
 }
 
 impl FromStr for RawConfig {

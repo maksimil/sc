@@ -21,6 +21,7 @@ macro_rules! verify {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     pub scripts: HashMap<String, Script>,
+    pub config: Env,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,10 +62,12 @@ impl Config {
                 }
             },
         );
-
         verify!(scripts);
 
-        Ok(Config { scripts })
+        let config = Env::from_raw(raw.config).map_err(|e| format!("config : {}", e));
+        verify!(config);
+
+        Ok(Config { scripts, config })
     }
 }
 

@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::config::{Cmd, Script};
+use crate::config::{Cmd, Config, Script};
 
 fn write_commands(buf: &mut String, cmd: &Cmd) {
     match cmd {
@@ -20,7 +20,7 @@ fn write_commands(buf: &mut String, cmd: &Cmd) {
     }
 }
 
-pub fn run_script(script: &Script) {
+pub fn run_script(script: &Script, config: &Config) {
     // converting script to sh format
     let sh = {
         let mut s = String::new();
@@ -28,7 +28,7 @@ pub fn run_script(script: &Script) {
             s += &format!("cd {}\n", cwd);
         }
 
-        for env_string in script.env.0.iter() {
+        for env_string in config.config.0.iter().chain(script.env.0.iter()) {
             s += &format!("export {}\n", env_string);
         }
 

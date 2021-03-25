@@ -86,7 +86,7 @@ fn main() {
 
         // run it
         eprintln!("\u{001b}[32mRunning script\u{001b}[0m {}", name);
-        run_script(script);
+        run_script(script, &config);
         exit(0);
     }
 }

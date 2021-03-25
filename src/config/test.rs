@@ -25,6 +25,7 @@ setup_test! {
     cmd = \"echo run\"
     ",
     Ok(Config {
+        config: Env(vec![]),
         scripts: vec![
             (
                 String::from("run"),
@@ -50,6 +51,7 @@ setup_test! {
     cmd = \"echo backrun\"
     ",
     Ok(Config {
+        config: Env(vec![]),
         scripts: vec![
             (
                 String::from("run"),
@@ -127,6 +129,7 @@ setup_test! {
     cmd = \"echo beta\"
     ",
     Ok(Config {
+        config: Env(vec![]),
         scripts: vec![
             (
                 String::from("s"),
@@ -157,6 +160,7 @@ setup_test! {
     cmd = [\"echo hey\", \"touch d.txt\"]
     ",
     Ok(Config {
+        config: Env(vec![]),
         scripts: vec![
             (
                 String::from("hey"),
@@ -193,6 +197,7 @@ setup_test! {
     env = {NAME=\"hey\", \"SUR_NAME\"=\"bye\"}
     ",
     Ok(Config {
+        config: Env(vec![]),
         scripts: vec![
             (
                 String::from("env_a"),
@@ -215,4 +220,42 @@ setup_test! {
     env = {\"hey you\"=\"hey\"}
     ",
     Err(String::from("script 0:env_a : invalid env variable name \"hey you\""))
+}
+
+setup_test! {
+    set_global_config,
+    "
+    [config]
+    NAME = \"GLOBAL\"
+
+    [[scripts]]
+    name = \"env_a\"
+    cmd = \"echo $NAME\"
+    ",
+    Ok(Config {
+        config: Env(vec![String::from("NAME=GLOBAL")]),
+        scripts: vec![
+            (
+                String::from("env_a"),
+                Script {
+                    cmd: Cmd::String(String::from("echo $NAME")),
+                    cwd: None,
+                    env: Env(vec![])
+                }
+            )
+        ].into_iter().collect()
+    })
+}
+
+setup_test! {
+    global_config_err,
+    "
+    [config]
+    \"NAME A\" = \"GLOBAL\"
+
+    [[scripts]]
+    name = \"env_a\"
+    cmd = \"echo $NAME\"
+    ",
+    Err(String::from("config : invalid env variable name \"NAME A\""))
 }
